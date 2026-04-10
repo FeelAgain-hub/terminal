@@ -1,5 +1,5 @@
 {
-  "name": "Data_terminal",
-  "description": "MHPSS sector open",
+  "name": "Clean Next.js 15 App",
+  "description": "A clean rebuild of the Next.js 15 application to resolve build errors.",
   "requestFramePermissions": []
 }

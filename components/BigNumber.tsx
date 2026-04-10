@@ -1,29 +1,29 @@
 'use client';
 
-import React from 'react';
 import { motion } from 'motion/react';
 
 interface BigNumberProps {
-  number: string;
+  value: string;
   label: string;
-  description?: string;
+  delay?: number;
 }
 
-export default function BigNumber({ number, label, description }: BigNumberProps) {
+export default function BigNumber({ value, label, delay = 0 }: BigNumberProps) {
   return (
-    <div className="flex flex-col gap-2">
-      <motion.span 
-        initial={{ opacity: 0, y: 10 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        className="text-6xl font-bold tracking-tighter text-white sm:text-8xl"
-      >
-        {number}
-      </motion.span>
-      <div className="flex flex-col">
-        <span className="text-sm font-bold text-emerald-400 uppercase tracking-widest">{label}</span>
-        {description && <span className="text-xs text-slate-500">{description}</span>}
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay, duration: 0.8 }}
+      className="relative p-8 border border-white/10 bg-white/5 backdrop-blur-sm"
+    >
+      <div className="text-7xl font-bold tracking-tighter mb-2 terminal-glow">
+        {value}
       </div>
-    </div>
+      <div className="text-xs uppercase tracking-[0.2em] text-white/40">
+        {label}
+      </div>
+      <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-white/30" />
+      <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-white/30" />
+    </motion.div>
   );
 }

@@ -1,32 +1,35 @@
 'use client';
 
-import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useEffect, useState } from 'react';
 
 interface FlipNumberProps {
   value: string | number;
   color?: string;
   prefix?: string;
-  suffix?: string;
 }
 
-export const FlipNumber = ({ value, color = 'text-[#00F5FF]', prefix = '', suffix = '' }: FlipNumberProps) => {
+export function FlipNumber({ value, color = 'text-white', prefix = '' }: FlipNumberProps) {
+  const [displayValue, setDisplayValue] = useState(value);
+
+  useEffect(() => {
+    setDisplayValue(value);
+  }, [value]);
+
   return (
-    <div className="overflow-hidden flex items-baseline justify-center">
-      {prefix && <span className={`${color} font-mono text-sm mr-1 opacity-70`}>{prefix}</span>}
+    <div className={`${color} font-mono text-base md:text-2xl font-bold flex items-center`}>
+      {prefix && <span className="mr-0.5">{prefix}</span>}
       <AnimatePresence mode="wait">
-        <motion.div
-          key={value}
-          initial={{ y: 20, opacity: 0 }}
+        <motion.span
+          key={String(displayValue)}
+          initial={{ y: 10, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          exit={{ y: -20, opacity: 0 }}
-          transition={{ duration: 0.3, ease: "easeInOut" }}
-          className={`${color} font-mono text-xl md:text-2xl font-bold tabular-nums`}
+          exit={{ y: -10, opacity: 0 }}
+          transition={{ duration: 0.3 }}
         >
-          {value}
-        </motion.div>
+          {displayValue}
+        </motion.span>
       </AnimatePresence>
-      {suffix && <span className={`${color} font-mono text-sm ml-1 opacity-70`}>{suffix}</span>}
     </div>
   );
-};
+}

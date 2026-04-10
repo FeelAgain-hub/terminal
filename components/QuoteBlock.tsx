@@ -1,35 +1,31 @@
 'use client';
 
-import React from 'react';
 import { motion } from 'motion/react';
-import { Quote } from 'lucide-react';
 
 interface QuoteBlockProps {
   quote: string;
   author: string;
-  title: string;
+  delay?: number;
 }
 
-export default function QuoteBlock({ quote, author, title }: QuoteBlockProps) {
+export default function QuoteBlock({ quote, author, delay = 0 }: QuoteBlockProps) {
   return (
-    <section className="mx-auto max-w-4xl px-4 py-24 sm:px-6 lg:px-8">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        className="relative rounded-2xl border border-white/10 bg-white/5 p-12 backdrop-blur-sm text-center"
-      >
-        <div className="absolute -top-6 left-1/2 -translate-x-1/2 rounded-full border border-white/10 bg-[#050A15] p-3">
-          <Quote className="h-6 w-6 text-emerald-400" />
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      whileInView={{ opacity: 1, scale: 1 }}
+      viewport={{ once: true }}
+      transition={{ delay, duration: 1 }}
+      className="p-12 border-l border-white/20 bg-gradient-to-r from-white/5 to-transparent"
+    >
+      <div className="text-3xl font-light italic leading-relaxed text-white/80 mb-8">
+        &ldquo;{quote}&rdquo;
+      </div>
+      <div className="flex items-center gap-4">
+        <div className="w-8 h-[1px] bg-white/40" />
+        <div className="text-xs uppercase tracking-[0.3em] text-white/40">
+          {author}
         </div>
-        <blockquote className="text-2xl font-medium leading-relaxed text-white sm:text-3xl">
-          &ldquo;{quote}&rdquo;
-        </blockquote>
-        <div className="mt-8">
-          <p className="text-lg font-bold text-emerald-400">{author}</p>
-          <p className="text-sm font-mono text-slate-500 uppercase tracking-widest">{title}</p>
-        </div>
-      </motion.div>
-    </section>
+      </div>
+    </motion.div>
   );
 }

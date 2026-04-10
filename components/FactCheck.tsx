@@ -1,63 +1,35 @@
 'use client';
 
-import React from 'react';
-import { CheckCircle2, AlertCircle } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
 
 interface FactCheckProps {
-  claim: string;
-  isVerified: boolean;
-  source?: string;
+  fact: string;
+  source: string;
+  delay?: number;
 }
 
-export default function FactCheck({ claim, isVerified, source }: FactCheckProps) {
+export default function FactCheck({ fact, source, delay = 0 }: FactCheckProps) {
   return (
-    <div className="flex items-start gap-4 rounded-lg border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
-      <div className={`mt-1 rounded-full p-1 transition-colors duration-500 ${isVerified ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
-        <AnimatePresence mode="wait">
-          {isVerified ? (
-            <motion.div
-              key="verified-icon"
-              initial={{ scale: 0, rotate: -90 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ type: "spring", stiffness: 260, damping: 20 }}
-            >
-              <CheckCircle2 className="h-4 w-4" />
-            </motion.div>
-          ) : (
-            <motion.div
-              key="review-icon"
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: "spring", stiffness: 260, damping: 20 }}
-            >
-              <AlertCircle className="h-4 w-4" />
-            </motion.div>
-          )}
-        </AnimatePresence>
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ delay, duration: 0.6 }}
+      className="p-6 border border-white/10 bg-white/5 flex gap-6 items-start"
+    >
+      <div className="p-2 bg-white/5">
+        <CheckCircle2 className="w-5 h-5 text-white/40" />
       </div>
-      <div className="flex flex-col gap-1">
-        <p className="text-sm font-medium text-white">{claim}</p>
-        <div className="flex items-center gap-2">
-          <AnimatePresence mode="wait">
-            <motion.span 
-              key={isVerified ? 'verified' : 'review'}
-              initial={{ opacity: 0, y: 5 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -5 }}
-              className={`text-[10px] font-mono font-bold uppercase tracking-widest ${isVerified ? 'text-emerald-400' : 'text-amber-400'}`}
-            >
-              {isVerified ? 'VERIFIED' : 'UNDER REVIEW'}
-            </motion.span>
-          </AnimatePresence>
-          {source && (
-            <>
-              <span className="text-[10px] text-slate-600">•</span>
-              <span className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">SOURCE: {source}</span>
-            </>
-          )}
+      <div className="space-y-4">
+        <p className="text-lg font-medium leading-relaxed text-white/80">
+          {fact}
+        </p>
+        <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-white/20">
+          <AlertCircle className="w-3 h-3" />
+          Source: {source}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

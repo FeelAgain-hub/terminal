@@ -2,13 +2,11 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
-import { Activity, ArrowRight, CheckCircle2, ChevronRight, LayoutDashboard, ShieldCheck, Users, Wallet } from 'lucide-react';
+import { Activity, ArrowRight, CheckCircle2, ChevronRight, LayoutDashboard, ShieldCheck, Users, Wallet, Landmark } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { FormattedValue } from '@/components/FormattedValue';
 import { FlipNumber } from '@/components/FlipNumber';
 import { INITIAL_TRANSACTIONS, INITIAL_CLINICIANS, SYMPTOM_DATA, OUTCOME_TREND } from '@/lib/data';
-
-import { Language, translations } from '@/lib/translations';
 
 // Dynamic imports for performance optimization
 const OutcomesCharts = dynamic(() => import('@/components/Charts').then(mod => mod.OutcomesCharts), {
@@ -26,19 +24,10 @@ const ClinicianRegistry = dynamic(() => import('@/components/Registry'), {
   ssr: false
 });
 
-const ClinicianStatsCharts = dynamic(() => import('@/components/Charts').then(mod => mod.ClinicianStatsCharts), {
-  loading: () => <div className="h-[300px] w-full bg-white/5 animate-pulse rounded-xl" />,
-  ssr: false
-});
-
 export default function Page() {
-  const [lang, setLang] = useState<Language>('ua');
-  const t = translations[lang];
-  const [activeModule, setActiveModule] = useState<'overview' | 'funds' | 'registry' | 'outcomes' | 'compliance'>('funds');
+  const [activeModule, setActiveModule] = useState<'overview' | 'funds' | 'registry' | 'outcomes' | 'compliance' | 'nbu'>('nbu');
   const [expandedTxId, setExpandedTxId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [ledgerPage, setLedgerPage] = useState(1);
-  const LEDGER_ITEMS_PER_PAGE = 5;
   
   // New Calculator State
   const [calcBeneficiaries, setCalcBeneficiaries] = useState<number>(1);
@@ -47,6 +36,21 @@ export default function Page() {
   const [isSlider1Moved, setIsSlider1Moved] = useState(false);
   const [isSlider2Moved, setIsSlider2Moved] = useState(false);
   const [isAnimatingSlider2, setIsAnimatingSlider2] = useState(false);
+  const [fallbackLevel, setFallbackLevel] = useState<number | null>(null);
+
+  useEffect(() => {
+    // Fetch metrics from our new fallback API
+    fetch('/api/metrics')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.level) {
+          setFallbackLevel(data.level);
+          // Optionally update base metrics with real data if needed
+          // setMetrics(prev => ({ ...prev, disbursed: data.paid, beneficiaries: data.sessions }));
+        }
+      })
+      .catch(err => console.error("Failed to fetch metrics:", err));
+  }, []);
 
   useEffect(() => {
     if (calcPsychologists > 0) {
@@ -79,13 +83,6 @@ export default function Page() {
 
   const [transactions, setTransactions] = useState(INITIAL_TRANSACTIONS);
   const [clinicians] = useState(INITIAL_CLINICIANS);
-
-  const paginatedTransactions = useMemo(() => {
-    const start = (ledgerPage - 1) * LEDGER_ITEMS_PER_PAGE;
-    return transactions.slice(start, start + LEDGER_ITEMS_PER_PAGE);
-  }, [transactions, ledgerPage]);
-
-  const totalLedgerPages = Math.ceil(transactions.length / LEDGER_ITEMS_PER_PAGE);
 
   // Animate Metrics
   useEffect(() => {
@@ -183,47 +180,6 @@ export default function Page() {
     };
   }, [calcBeneficiaries, calcMixedRate, calcPsychologists, MARKET_COURSE_VALUE]);
 
-  const clinicianStats = useMemo(() => {
-    const specCounts: Record<string, number> = {};
-    const statusCounts: Record<string, number> = {};
-
-    clinicians.forEach(c => {
-      const specMap: Record<string, string> = {
-        'PTSD / Trauma': t.ptsdTrauma,
-        'CBT / Anxiety': t.cbtAnxiety,
-        'Child Psychology': t.childPsych,
-        'Military Rehab': t.militaryRehab,
-        'Crisis Intervention': t.crisisIntervention,
-        'Addiction Recovery': t.addictionRecovery,
-        'Family Therapy': t.familyTherapy,
-        'Grief Counseling': t.griefCounseling,
-        'Art Therapy': t.artTherapy,
-        'Neuropsychology': t.neuropsychology,
-        'Group Therapy': t.groupTherapy,
-        'Rehabilitation': t.rehabilitation,
-        'Clinical Psych': t.clinicalPsych,
-      };
-      const name = specMap[c.spec] || c.spec;
-      specCounts[name] = (specCounts[name] || 0) + 1;
-
-      const statusMap: Record<string, string> = {
-        'ACTIVE': t.active,
-        'ON LEAVE': t.onLeave,
-      };
-      const statusName = statusMap[c.status] || c.status;
-      statusCounts[statusName] = (statusCounts[statusName] || 0) + 1;
-    });
-
-    const specData = Object.entries(specCounts)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
-
-    const statusData = Object.entries(statusCounts)
-      .map(([name, value]) => ({ name, value }));
-
-    return { specData, statusData };
-  }, [clinicians, t]);
-
   // Sync metrics with simulation
   useEffect(() => {
     setMetrics(prev => ({
@@ -235,18 +191,17 @@ export default function Page() {
   }, [simulationResults]);
 
   return (
-    <main className="min-h-screen bg-[#02040A] text-slate-300 font-sans selection:bg-[#F59E0B] selection:text-[#050A15]">
-      <div className="h-screen flex flex-col bg-[#02040A]">
+    <main className="min-h-screen bg-[#0F2B46] text-slate-300 font-sans selection:bg-[#D4A017] selection:text-[#0F2B46]">
+      <div className="h-screen flex flex-col bg-[#0F2B46]">
         {/* Terminal Header */}
         <header className="flex items-center justify-between px-4 md:px-6 py-3 border-b border-white/10 bg-[#050A15]">
           <div className="flex items-center gap-3 md:gap-4">
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-[#00F5FF] shadow-[0_0_8px_#00F5FF]" />
-              <span className="text-white font-mono text-xs md:text-sm tracking-tighter">FA_TERMINAL_v1.0</span>
+              <img src="/FEEL_logo_dark.svg" alt="FEEL Again" className="h-6 w-auto" />
             </div>
             <div className="hidden lg:flex items-center gap-4 pl-4 border-l border-white/10">
               <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-[#00FF66] animate-pulse" />
+                <div className="w-1.5 h-1.5 rounded-full bg-[#2A9D8F] animate-pulse" />
                 <span className="text-[10px] font-mono text-slate-500 uppercase">Status: Live</span>
               </div>
               <div className="text-[10px] font-mono text-slate-500 uppercase">Network: Secure</div>
@@ -254,22 +209,9 @@ export default function Page() {
             </div>
           </div>
           <div className="flex items-center gap-3 md:gap-4 text-[10px] md:text-xs font-mono text-slate-400">
-            <div className="flex items-center bg-white/5 border border-white/10 rounded-md overflow-hidden">
-              <button 
-                onClick={() => setLang('en')}
-                className={`px-2 py-1 transition-all ${lang === 'en' ? 'bg-[#F59E0B] text-[#050A15] font-bold' : 'hover:bg-white/5'}`}
-              >
-                EN
-              </button>
-              <button 
-                onClick={() => setLang('ua')}
-                className={`px-2 py-1 transition-all ${lang === 'ua' ? 'bg-[#F59E0B] text-[#050A15] font-bold' : 'hover:bg-white/5'}`}
-              >
-                UA
-              </button>
-            </div>
-            <span className="hidden sm:inline">UPTIME: <span className="text-[#00F5FF]">99.9%</span></span>
-            <span>REGION: <span className="text-[#00F5FF]">UA_WEST</span></span>
+            <span className="hidden sm:inline">DATA SOURCE: <span className="text-[#D4A017]">{fallbackLevel ? `LEVEL ${fallbackLevel}` : 'SYNCING...'}</span></span>
+            <span className="hidden sm:inline">UPTIME: <span className="text-[#2A9D8F]">99.9%</span></span>
+            <span>REGION: <span className="text-[#D4A017]">UA_WEST</span></span>
           </div>
         </header>
 
@@ -277,20 +219,21 @@ export default function Page() {
         <div className="flex-1 flex overflow-hidden">
           {/* Sidebar - Hidden on small mobile, scrollable on others */}
           <aside className="hidden md:flex w-64 border-r border-white/10 bg-[#050A15]/50 p-4 flex-col gap-2 overflow-y-auto">
-            <div className="text-xs font-bold text-slate-500 tracking-widest uppercase mb-4 px-2">{lang === 'en' ? 'Modules' : 'Модулі'}</div>
+            <div className="text-xs font-bold text-slate-500 tracking-widest uppercase mb-4 px-2">Modules</div>
             {[
-              { id: 'funds', icon: Wallet, label: t.contribution },
-              { id: 'overview', icon: LayoutDashboard, label: t.overview },
-              { id: 'registry', icon: Users, label: t.registry },
-              { id: 'outcomes', icon: Activity, label: t.outcomes },
-              { id: 'compliance', icon: ShieldCheck, label: t.compliance },
+              { id: 'nbu', icon: Landmark, label: 'NBU Economic Index' },
+              { id: 'funds', icon: Wallet, label: 'Contribution' },
+              { id: 'overview', icon: LayoutDashboard, label: 'Overview' },
+              { id: 'registry', icon: Users, label: 'Clinician Registry' },
+              { id: 'outcomes', icon: Activity, label: 'Clinical Outcomes' },
+              { id: 'compliance', icon: ShieldCheck, label: 'Compliance' },
             ].map((mod) => (
               <button 
                 key={mod.id}
-                onClick={() => setActiveModule(mod.id as 'overview' | 'funds' | 'registry' | 'outcomes' | 'compliance')}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium border transition-all ${
+                onClick={() => setActiveModule(mod.id as 'overview' | 'funds' | 'registry' | 'outcomes' | 'compliance' | 'nbu')}
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium border transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] ${
                   activeModule === mod.id 
-                    ? 'bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/20' 
+                    ? 'bg-[#D4A017]/10 text-[#D4A017] border-[#D4A017]/20 shadow-[0_0_10px_rgba(212,160,23,0.1)]' 
                     : 'text-slate-400 hover:text-white hover:bg-white/5 hover:border-white/10 border-transparent'
                 }`}
               >
@@ -302,6 +245,7 @@ export default function Page() {
           {/* Mobile Nav - Visible only on small screens */}
           <div className="md:hidden fixed bottom-0 left-0 right-0 bg-[#050A15] border-t border-white/10 z-50 flex justify-around p-2">
             {[
+              { id: 'nbu', icon: Landmark },
               { id: 'funds', icon: Wallet },
               { id: 'overview', icon: LayoutDashboard },
               { id: 'registry', icon: Users },
@@ -310,9 +254,9 @@ export default function Page() {
             ].map((mod) => (
               <button 
                 key={mod.id}
-                onClick={() => setActiveModule(mod.id as 'overview' | 'funds' | 'registry' | 'outcomes' | 'compliance')}
-                className={`p-2 rounded-lg transition-all ${
-                  activeModule === mod.id ? 'text-[#F59E0B] bg-[#F59E0B]/10' : 'text-slate-500'
+                onClick={() => setActiveModule(mod.id as 'overview' | 'funds' | 'registry' | 'outcomes' | 'compliance' | 'nbu')}
+                className={`p-2 rounded-lg transition-all duration-200 hover:scale-110 active:scale-90 ${
+                  activeModule === mod.id ? 'text-[#D4A017] bg-[#D4A017]/10' : 'text-slate-500 hover:text-slate-300'
                 }`}
               >
                 <mod.icon className="w-5 h-5" />
@@ -328,80 +272,80 @@ export default function Page() {
                 <>
                   {/* Top Metrics */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <div className="bg-[#050A15] border border-white/10 p-4 rounded-xl flex flex-col justify-between min-h-[120px]">
-                        <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2">{t.totalPool}</div>
+                      <div className="bg-[#050A15] border border-white/10 p-4 rounded-xl flex flex-col justify-between min-h-[120px] transition-all duration-300 hover:border-white/20 hover:bg-white/5 hover:shadow-[0_0_15px_rgba(0,245,255,0.03)]">
+                        <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2">Загальний Пул</div>
                         <motion.div 
                           key={metrics.totalPool}
                           initial={{ opacity: 0.8 }}
                           animate={{ opacity: 1 }}
-                          className="text-xl md:text-2xl lg:text-3xl font-mono text-[#00F5FF] truncate"
+                          className="text-xl md:text-2xl lg:text-3xl font-mono text-[#D4A017] truncate"
                         >
                           <FormattedValue value={metrics.totalPool} type="currency" />
                         </motion.div>
-                        <div className="text-[#00FF66] text-[10px] mt-2 flex items-center gap-1">
-                          <ArrowRight className="w-3 h-3 -rotate-45" /> +$250k {t.thisMonth}
+                        <div className="text-[#2A9D8F] text-[10px] mt-2 flex items-center gap-1">
+                          <ArrowRight className="w-3 h-3 -rotate-45" /> +$250k this month
                         </div>
                       </div>
-                      <div className="bg-[#050A15] border border-white/10 p-4 rounded-xl flex flex-col justify-between min-h-[120px]">
-                        <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2">{t.disbursed}</div>
+                      <div className="bg-[#050A15] border border-white/10 p-4 rounded-xl flex flex-col justify-between min-h-[120px] transition-all duration-300 hover:border-white/20 hover:bg-white/5 hover:shadow-[0_0_15px_rgba(0,245,255,0.03)]">
+                        <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2">Виплачено</div>
                         <motion.div 
                           key={metrics.disbursed}
                           initial={{ opacity: 0.8 }}
                           animate={{ opacity: 1 }}
-                          className="text-xl md:text-2xl lg:text-3xl font-mono text-[#00F5FF] truncate"
+                          className="text-xl md:text-2xl lg:text-3xl font-mono text-[#D4A017] truncate"
                         >
                           <FormattedValue value={metrics.disbursed} type="currency" />
                         </motion.div>
-                        <div className="text-slate-400 text-[10px] mt-2">{t.directToClinicians}</div>
+                        <div className="text-slate-400 text-[10px] mt-2">Direct to clinicians</div>
                       </div>
-                      <div className="bg-[#050A15] border border-white/10 p-4 rounded-xl flex flex-col justify-between min-h-[120px]">
-                        <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2">{t.activeClinicians}</div>
+                      <div className="bg-[#050A15] border border-white/10 p-4 rounded-xl flex flex-col justify-between min-h-[120px] transition-all duration-300 hover:border-white/20 hover:bg-white/5 hover:shadow-[0_0_15px_rgba(0,245,255,0.03)]">
+                        <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2">Бенефіціари</div>
+                        <motion.div 
+                          key={metrics.beneficiaries}
+                          initial={{ opacity: 0.8 }}
+                          animate={{ opacity: 1 }}
+                          className="text-xl md:text-2xl lg:text-3xl font-mono text-[#D4A017] truncate"
+                        >
+                          <FormattedValue value={metrics.beneficiaries} />
+                        </motion.div>
+                        <div className="text-slate-400 text-[10px] mt-2">Total treated</div>
+                      </div>
+                      <div className="bg-[#050A15] border border-white/10 p-4 rounded-xl flex flex-col justify-between min-h-[120px] transition-all duration-300 hover:border-white/20 hover:bg-white/5 hover:shadow-[0_0_15px_rgba(0,245,255,0.03)]">
+                        <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2">Активні Фахівці</div>
                         <motion.div 
                           key={metrics.activeClinicians}
                           initial={{ opacity: 0.8 }}
                           animate={{ opacity: 1 }}
-                          className="text-xl md:text-2xl lg:text-3xl font-mono text-[#00F5FF] truncate"
+                          className="text-xl md:text-2xl lg:text-3xl font-mono text-[#D4A017] truncate"
                         >
                           <FormattedValue value={metrics.activeClinicians} />
                         </motion.div>
-                        <div className="text-slate-400 text-[10px] mt-2">{t.verifiedVia}</div>
-                      </div>
-                      <div className="bg-[#050A15] border border-white/10 p-4 rounded-xl flex flex-col justify-between min-h-[120px]">
-                        <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2">{t.therapySuccess}</div>
-                        <motion.div 
-                          key={metrics.outcomeSuccess}
-                          initial={{ opacity: 0.8 }}
-                          animate={{ opacity: 1 }}
-                          className="text-xl md:text-2xl lg:text-3xl font-mono text-[#00F5FF] truncate"
-                        >
-                          <FormattedValue value={metrics.outcomeSuccess} type="percent" />
-                        </motion.div>
-                        <div className="text-slate-400 text-[10px] mt-2">{t.ptsdReduction}</div>
+                        <div className="text-slate-400 text-[10px] mt-2">Verified via Diia / НСЗУ</div>
                       </div>
                     </div>
 
                   {/* Live Ledger */}
                   <div className="bg-[#050A15] border border-white/10 rounded-xl overflow-hidden">
                     <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
-                      <h2 className="text-xs font-bold text-white uppercase tracking-widest">{t.liveLedger}</h2>
-                      <div className="flex items-center gap-2 text-xs text-[#00FF66]">
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#00FF66] animate-pulse" />
-                        {t.syncing}
+                      <h2 className="text-xs font-bold text-white uppercase tracking-widest">Live Transaction Ledger</h2>
+                      <div className="flex items-center gap-2 text-xs text-[#2A9D8F]">
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#2A9D8F] animate-pulse" />
+                        SYNCING
                       </div>
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-sm table-fixed min-w-[600px]">
                         <thead className="text-[10px] text-slate-500 uppercase tracking-widest bg-white/5">
                           <tr>
-                            <th className="px-6 py-3 font-medium w-1/4">{t.txId}</th>
-                            <th className="px-6 py-3 font-medium w-1/4">{t.clinicianId}</th>
-                            <th className="px-6 py-3 font-medium w-1/4">{t.protocol}</th>
-                            <th className="px-6 py-3 font-medium w-1/6">{t.amount}</th>
-                            <th className="px-6 py-3 font-medium w-1/6">{t.status}</th>
+                            <th className="px-6 py-3 font-medium w-1/4">Tx Hash</th>
+                            <th className="px-6 py-3 font-medium w-1/4">Clinician ID</th>
+                            <th className="px-6 py-3 font-medium w-1/4">Protocol</th>
+                            <th className="px-6 py-3 font-medium w-1/6">Amount</th>
+                            <th className="px-6 py-3 font-medium w-1/6">Status</th>
                           </tr>
                         </thead>
                         <AnimatePresence initial={false}>
-                          {paginatedTransactions.map((tx, i) => (
+                          {transactions.map((tx, i) => (
                             <motion.tbody 
                               key={tx.id}
                               initial={{ opacity: 0 }}
@@ -412,7 +356,7 @@ export default function Page() {
                               <motion.tr 
                                 layout
                                 transition={{ duration: 0.4, ease: "easeInOut" }}
-                                className={`hover:bg-white/5 transition-colors cursor-pointer group h-[60px] ${expandedTxId === tx.id ? 'bg-white/5' : ''}`}
+                                className={`hover:bg-white/10 transition-all duration-200 cursor-pointer group h-[60px] border-l-2 border-transparent hover:border-[#00F5FF]/30 ${expandedTxId === tx.id ? 'bg-white/10 border-l-[#00F5FF]' : ''}`}
                                 onClick={() => setExpandedTxId(expandedTxId === tx.id ? null : tx.id)}
                               >
                                 <td className="px-6 py-4 text-slate-400 truncate">{tx.id}</td>
@@ -444,7 +388,7 @@ export default function Page() {
                                           />
                                         )}
                                       </AnimatePresence>
-                                      {tx.status === 'SETTLED' ? t.settled : t.pending}
+                                      {tx.status}
                                     </span>
                                     <ChevronRight className={`w-4 h-4 text-slate-600 transition-transform duration-300 ${expandedTxId === tx.id ? 'rotate-90' : ''}`} />
                                   </div>
@@ -466,15 +410,15 @@ export default function Page() {
                                       >
                                         <div className="px-6 py-4 grid grid-cols-1 sm:grid-cols-4 gap-4 md:gap-8">
                                           <div>
-                                            <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">{t.clinicianName}</div>
+                                            <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Clinician Name</div>
                                             <div className="text-white font-sans font-medium text-xs">{tx.clinicianName}</div>
                                           </div>
                                           <div>
-                                            <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">{t.clinicianId}</div>
+                                            <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Clinician ID</div>
                                             <div className="text-white font-mono text-xs">{tx.doc}</div>
                                           </div>
                                           <div>
-                                            <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">{t.timestamp}</div>
+                                            <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Timestamp</div>
                                             <div className="text-slate-300 text-xs">{tx.date} <span className="text-slate-500">@</span> {tx.time}</div>
                                           </div>
                                           <div className="flex items-end justify-start sm:justify-end">
@@ -483,9 +427,9 @@ export default function Page() {
                                                 e.stopPropagation();
                                                 toggleStatus(i);
                                               }}
-                                              className="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 border border-white/10 rounded-md hover:bg-white/10 transition-colors"
+                                              className="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 border border-white/10 rounded-md hover:bg-white/10 hover:border-[#F59E0B]/50 hover:text-white transition-all duration-200 active:scale-95"
                                             >
-                                              {t.toggleStatus}
+                                              Toggle Status
                                             </button>
                                           </div>
                                         </div>
@@ -499,31 +443,6 @@ export default function Page() {
                         </AnimatePresence>
                       </table>
                     </div>
-                    
-                    {/* Ledger Pagination */}
-                    {totalLedgerPages > 1 && (
-                      <div className="px-6 py-3 border-t border-white/10 bg-white/[0.02] flex items-center justify-between">
-                        <div className="text-[10px] font-mono text-slate-500 uppercase tracking-tighter">
-                          {t.page} <span className="text-white">{ledgerPage}</span> {t.of} <span className="text-white">{totalLedgerPages}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button 
-                            onClick={() => setLedgerPage(prev => Math.max(1, prev - 1))}
-                            disabled={ledgerPage === 1}
-                            className="p-1 rounded border border-white/10 bg-white/5 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 transition-colors"
-                          >
-                            <ChevronLeft className="w-3 h-3" />
-                          </button>
-                          <button 
-                            onClick={() => setLedgerPage(prev => Math.min(totalLedgerPages, prev + 1))}
-                            disabled={ledgerPage === totalLedgerPages}
-                            className="p-1 rounded border border-white/10 bg-white/5 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 transition-colors"
-                          >
-                            <ChevronRight className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
-                    )}
                   </div>
 
                     {/* Protocol Compliance */}
@@ -531,39 +450,33 @@ export default function Page() {
                       <div className="bg-[#050A15] border border-white/10 rounded-xl p-6">
                         <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-6 flex items-center gap-2">
                           <Activity className="w-4 h-4 text-[#F59E0B]" />
-                          {t.monitoringControl}
+                          Monitoring & Control
                         </h3>
                         <div className="grid grid-cols-2 gap-4">
-                          <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                            <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">{t.beneficiaries}</div>
-                            <div className="text-xl font-bold text-[#00F5FF]">
-                              <FormattedValue value={metrics.beneficiaries} />
-                            </div>
-                          </div>
-                          <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                            <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">{t.patients}</div>
+                          <div className="p-4 bg-white/5 rounded-lg border border-white/10 transition-all duration-300 hover:border-white/20 hover:bg-white/10 hover:shadow-[0_0_10px_rgba(0,245,255,0.02)]">
+                            <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Пацієнти</div>
                             <div className="text-xl font-bold text-[#00F5FF]">
                               <FormattedValue value={metrics.patients} />
                             </div>
                           </div>
-                          <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                            <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">{t.clients}</div>
+                          <div className="p-4 bg-white/5 rounded-lg border border-white/10 transition-all duration-300 hover:border-white/20 hover:bg-white/10 hover:shadow-[0_0_10px_rgba(0,245,255,0.02)]">
+                            <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Клієнти</div>
                             <div className="text-xl font-bold text-[#00F5FF]">
                               <FormattedValue value={metrics.clients} />
                             </div>
                           </div>
-                          <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                            <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">{t.processedOrders}</div>
+                          <div className="p-4 bg-white/5 rounded-lg border border-white/10 transition-all duration-300 hover:border-white/20 hover:bg-white/10 hover:shadow-[0_0_10px_rgba(0,245,255,0.02)]">
+                            <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Processed Orders</div>
                             <div className="text-xl font-bold text-[#00F5FF]">
                               <FormattedValue value={metrics.processedOrders} />
                             </div>
                           </div>
-                          <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                            <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">{t.riskScore}</div>
+                          <div className="p-4 bg-white/5 rounded-lg border border-white/10 transition-all duration-300 hover:border-white/20 hover:bg-white/10 hover:shadow-[0_0_10px_rgba(0,255,102,0.02)]">
+                            <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Risk Score</div>
                             <div className="text-xl font-bold text-[#00FF66]">{metrics.riskScore}</div>
                           </div>
-                          <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                            <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">{t.automationRate}</div>
+                          <div className="p-4 bg-white/5 rounded-lg border border-white/10 transition-all duration-300 hover:border-white/20 hover:bg-white/10 hover:shadow-[0_0_10px_rgba(245,158,11,0.02)] col-span-2">
+                            <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Automation Rate</div>
                             <div className="text-xl font-bold text-[#F59E0B]">{metrics.automationRate}%</div>
                           </div>
                         </div>
@@ -591,9 +504,9 @@ export default function Page() {
                         <div className="w-16 h-16 rounded-full border border-white/10 flex items-center justify-center mb-4 bg-white/5">
                           <ShieldCheck className="w-8 h-8 text-[#00FF66]" />
                         </div>
-                        <h3 className="text-lg font-bold text-white mb-2">{t.systemIntegrity}</h3>
+                        <h3 className="text-lg font-bold text-white mb-2">System Integrity: Verified</h3>
                         <p className="text-sm text-slate-400 max-w-sm">
-                          {t.integrityDesc}
+                          All active clinicians are cross-referenced with НСЗУ registry and Diia. Smart contracts automatically block payments to unverified actors.
                         </p>
                       </div>
                     </div>
@@ -603,7 +516,7 @@ export default function Page() {
                 {activeModule === 'funds' && (
                   <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="flex items-center justify-between">
-                      <h2 className="text-xl font-bold text-white uppercase tracking-widest">{t.impactCalculator}</h2>
+                      <h2 className="text-xl font-bold text-white uppercase tracking-widest">Калькулятор Впливу</h2>
                     </div>
 
                     {/* New Calculator UI */}
@@ -617,7 +530,7 @@ export default function Page() {
                             transition={{ duration: 0.4 }}
                             className="bg-white/5 border border-white/10 p-2 md:p-4 rounded-xl flex flex-col items-center justify-center text-center group transition-all hover:border-[#00F5FF]/30"
                           >
-                            <div className="text-[7px] md:text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-0.5 md:mb-2">{t.coverage}</div>
+                            <div className="text-[7px] md:text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-0.5 md:mb-2">Охоплення</div>
                             <div className="flex items-center gap-1">
                               <div className="text-base md:text-2xl font-mono font-bold text-[#00F5FF]">
                                 {Math.round(simulationResults.totalBeneficiaries)}
@@ -634,7 +547,7 @@ export default function Page() {
                           </motion.div>
 
                           <div className="bg-white/5 border border-white/10 p-2 md:p-4 rounded-xl flex flex-col items-center justify-center text-center group transition-all hover:border-[#F59E0B]/30">
-                            <div className="text-[7px] md:text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-0.5 md:mb-2">{t.contributionAmount}</div>
+                            <div className="text-[7px] md:text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-0.5 md:mb-2">Сума внеску</div>
                             <div className="flex items-center gap-1 w-full justify-center overflow-hidden">
                               <span className="text-xs md:text-xl font-mono font-bold text-white">€</span>
                               <input 
@@ -665,12 +578,12 @@ export default function Page() {
                             transition={{ duration: 0.4 }}
                             className={`bg-white/5 border border-white/10 p-2 md:p-4 rounded-xl flex flex-col items-center justify-center text-center transition-all duration-500 ${isSlider2Moved ? 'opacity-100 border-[#00FF66]/30' : 'opacity-30 grayscale'}`}
                           >
-                            <div className="text-[7px] md:text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-0.5 md:mb-2">{t.trainingPsychologists}</div>
+                            <div className="text-[7px] md:text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-0.5 md:mb-2">Train for Care</div>
                             <div className="flex items-center gap-1">
                               <span className="text-base md:text-2xl font-mono font-bold text-white">
                                 {calcPsychologists}
                               </span>
-                              <span className="text-[7px] md:text-[9px] font-bold text-slate-500 uppercase">{t.psych}</span>
+                              <span className="text-[7px] md:text-[9px] font-bold text-slate-500 uppercase">Псих.</span>
                             </div>
                           </motion.div>
 
@@ -679,12 +592,12 @@ export default function Page() {
                             transition={{ duration: 0.4 }}
                             className="bg-white/5 border border-white/10 p-2 md:p-4 rounded-xl flex flex-col items-center justify-center text-center group transition-all hover:border-[#00FF66]/30"
                           >
-                            <div className="text-[7px] md:text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-0.5 md:mb-2">{t.courseCost}</div>
+                            <div className="text-[7px] md:text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-0.5 md:mb-2">Вартість курсу</div>
                             <div className="flex items-center gap-1">
                               <span className="text-base md:text-2xl font-mono font-bold text-[#00FF66]">
                                 €{Math.round(simulationResults.effectiveCostPerBeneficiary)}
                               </span>
-                              <div className="text-[6px] md:text-[8px] text-slate-500 font-bold uppercase">/ {t.perPerson}</div>
+                              <div className="text-[6px] md:text-[8px] text-slate-500 font-bold uppercase">/ чол</div>
                             </div>
                           </motion.div>
                         </div>
@@ -694,7 +607,7 @@ export default function Page() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-12">
                         <div className="space-y-2 md:space-y-4">
                           <div className="flex justify-between items-center">
-                            <label className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest">{t.mixedFinanceLabel}</label>
+                            <label className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest">Смешанное финансирование</label>
                             <span className="text-xs font-mono text-[#F59E0B] font-bold">{calcMixedRate}%</span>
                           </div>
                           <input 
@@ -710,13 +623,13 @@ export default function Page() {
                             className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-[#F59E0B]"
                           />
                           <p className="hidden md:block text-[10px] text-slate-500 leading-relaxed italic">
-                            {t.mixedDesc}
+                            Ви можете приєднатися до пулу донорів, де ваш внесок буде доповнено ресурсами фондів та корпорацій. При 15% власного фінансування ви отримуєте повний звіт про цільове використання 100% коштів.
                           </p>
                         </div>
 
                         <div className="space-y-2 md:space-y-4">
                           <div className="flex justify-between items-center">
-                            <label className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest">{t.trainingPsychologists}</label>
+                            <label className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest">Train for Care</label>
                             <span className="text-xs font-mono text-[#00FF66] font-bold">{calcPsychologists}</span>
                           </div>
                           <input 
@@ -737,10 +650,10 @@ export default function Page() {
                             className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-[#00FF66]"
                           />
                           <p className="hidden md:block text-[10px] text-slate-500 leading-relaxed italic">
-                            {t.trainingDesc}
+                            Ми змінюємо правила гри: навчання 20 психологів (90 тис. €) створює 3000 годин про-боно допомоги. Це знижує вартість курсу з 800 € (стандарт ВООЗ) до 360 € (EMDR & VR), створюючи колосальний гуманітарний ефект.
                           </p>
-                          <button className="flex items-center gap-2 text-[9px] md:text-[10px] font-bold text-[#00F5FF] uppercase tracking-widest hover:underline">
-                            {lang === 'en' ? 'Learn More' : 'Докладніше'} <ArrowRight className="w-3 h-3" />
+                          <button className="flex items-center gap-2 text-[9px] md:text-[10px] font-bold text-[#00F5FF] uppercase tracking-widest hover:translate-x-1 transition-transform duration-200 group">
+                            Докладніше <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                           </button>
                         </div>
                       </div>
@@ -750,25 +663,25 @@ export default function Page() {
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
                       {[
                         { 
-                          name: t.crowdfunding, 
+                          name: 'Спільнокошт', 
                           value: isSlider1Moved ? simulationResults.crowdfunding : 125000, 
                           color: isSlider1Moved ? 'text-[#F59E0B]' : 'text-[#00F5FF]',
                           shouldFlip: isSlider1Moved
                         },
                         { 
-                          name: t.corporate, 
+                          name: 'Корпоративна філантропія', 
                           value: isSlider1Moved ? simulationResults.corporate : 350000, 
                           color: isSlider1Moved ? 'text-[#F59E0B]' : 'text-[#00F5FF]',
                           shouldFlip: isSlider1Moved
                         },
                         { 
-                          name: t.donors, 
+                          name: 'Донори та фонди', 
                           value: isSlider1Moved ? simulationResults.donors : 900000, 
                           color: isSlider1Moved ? 'text-[#F59E0B]' : 'text-[#00F5FF]',
                           shouldFlip: isSlider1Moved
                         },
                         { 
-                          name: t.resourceEfficiency, 
+                          name: 'Ефективність ресурсів', 
                           value: simulationResults.totalEfficiency.toFixed(2) + 'x', 
                           color: (isSlider1Moved || isSlider2Moved) ? 'text-[#F59E0B]' : 'text-[#00F5FF]',
                           shouldFlip: isSlider1Moved || isSlider2Moved
@@ -780,7 +693,7 @@ export default function Page() {
                             key={donor.name} 
                             animate={isAnimatingSlider2 && isEfficiencyBlock ? { scale: [1, 1.03, 1], borderColor: ['rgba(255,255,255,0.1)', 'rgba(0,245,255,0.4)', 'rgba(255,255,255,0.1)'] } : {}}
                             transition={{ duration: 0.4 }}
-                            className="bg-[#050A15] border border-white/10 p-3 md:p-6 rounded-xl flex flex-col justify-between min-h-[100px] md:min-h-[140px] transition-all hover:bg-white/5"
+                            className="bg-[#050A15] border border-white/10 p-3 md:p-6 rounded-xl flex flex-col justify-between min-h-[100px] md:min-h-[140px] transition-all duration-300 hover:bg-white/5 hover:border-white/20 hover:shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:-translate-y-0.5"
                           >
                             <div className="text-slate-500 text-[8px] md:text-[10px] font-bold uppercase tracking-widest mb-2 md:mb-4">{donor.name}</div>
                             <div className="flex flex-col">
@@ -800,7 +713,7 @@ export default function Page() {
                                 </div>
                               )}
                               <div className="text-[7px] md:text-[10px] text-slate-600 mt-1 md:mt-2 uppercase font-bold tracking-tighter">
-                                {idx === 3 ? t.calculatedMetric : t.resourceAllocation}
+                                {idx === 3 ? 'Розрахунковий показник' : 'Розподіл ресурсів'}
                               </div>
                             </div>
                           </motion.div>
@@ -814,37 +727,35 @@ export default function Page() {
                         <div className="w-full md:w-1/2 h-[300px] relative">
                           <FundingPieChart 
                             data={[
-                              { name: t.crowdfunding, value: simulationResults.crowdfunding },
-                              { name: t.corporate, value: simulationResults.corporate },
-                              { name: t.donors, value: simulationResults.donors },
-                              { name: t.userFunds, value: simulationResults.userContribution },
+                              { name: 'Спільнокошт', value: simulationResults.crowdfunding },
+                              { name: 'Корпорації', value: simulationResults.corporate },
+                              { name: 'Донори', value: simulationResults.donors },
+                              { name: 'Власні кошти', value: simulationResults.userContribution },
                             ]} 
-                            totalActualCost={simulationResults.totalActualCost} 
-                            lang={lang}
                           />
                         </div>
                         
                         <div className="w-full md:w-1/2 space-y-4">
-                          <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-2">{t.fundingStructure}</h3>
+                          <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-2">Структура фінансування</h3>
                           {[
-                            { name: t.crowdfunding, color: 'bg-[#F59E0B]', value: simulationResults.crowdfunding },
-                            { name: t.corporate, color: 'bg-[#00F5FF]', value: simulationResults.corporate },
-                            { name: t.donors, color: 'bg-[#00FF66]', value: simulationResults.donors },
-                            { name: t.userFunds, color: 'bg-[#475569]', value: simulationResults.userContribution },
+                            { name: 'Спільнокошт', color: 'bg-[#F59E0B]', value: simulationResults.crowdfunding },
+                            { name: 'Корпоративна філантропія', color: 'bg-[#00F5FF]', value: simulationResults.corporate },
+                            { name: 'Донори та фонди', color: 'bg-[#00FF66]', value: simulationResults.donors },
+                            { name: 'Власні кошти (Funds)', color: 'bg-[#475569]', value: simulationResults.userContribution },
                           ].map((item) => (
-                            <div key={item.name} className="flex items-center justify-between group">
+                            <div key={item.name} className="flex items-center justify-between group p-2 rounded-lg hover:bg-white/5 transition-all duration-200 cursor-default">
                               <div className="flex items-center gap-3">
-                                <div className={`w-2 h-2 rounded-full ${item.color}`} />
+                                <div className={`w-2 h-2 rounded-full ${item.color} group-hover:scale-125 transition-transform`} />
                                 <span className="text-xs text-slate-400 group-hover:text-white transition-colors">{item.name}</span>
                               </div>
-                              <div className="text-xs font-mono text-white font-bold">
+                              <div className="text-xs font-mono text-white font-bold group-hover:text-[#00F5FF] transition-colors">
                                 {((item.value / simulationResults.totalActualCost) * 100).toFixed(1)}%
                               </div>
                             </div>
                           ))}
                           <div className="pt-4 border-t border-white/5">
                             <p className="text-[10px] text-slate-500 italic leading-relaxed">
-                              {t.blendedDesc}
+                              Ця модель демонструє принцип &quot;Blended Finance&quot;, де кожне євро власного внеску залучає додаткові ресурси від партнерів, масштабуючи ваш вплив.
                             </p>
                           </div>
                         </div>
@@ -852,56 +763,45 @@ export default function Page() {
                     </div>
                   </div>
                 )}
+
                 {activeModule === 'registry' && (
-                      <ClinicianRegistry 
-                        clinicians={clinicians} 
-                        searchQuery={searchQuery} 
-                        setSearchQuery={setSearchQuery} 
-                        FormattedValue={FormattedValue} 
-                        lang={lang}
-                      />
-                    )}
+                  <ClinicianRegistry 
+                    clinicians={clinicians} 
+                    searchQuery={searchQuery} 
+                    setSearchQuery={setSearchQuery} 
+                    FormattedValue={FormattedValue} 
+                  />
+                )}
                 {activeModule === 'outcomes' && (
                   <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="flex items-center justify-between">
-                      <h2 className="text-xl font-bold text-white uppercase tracking-widest">{t.clinicalOutcomes}</h2>
-                      <div className="text-[10px] font-mono text-slate-500">{t.realTimeClinicalData}</div>
+                      <h2 className="text-xl font-bold text-white uppercase tracking-widest">Clinical Outcomes Analytics</h2>
+                      <div className="text-[10px] font-mono text-slate-500">REAL-TIME CLINICAL DATA STREAM</div>
                     </div>
 
-                    <OutcomesCharts symptomData={SYMPTOM_DATA} outcomeTrend={OUTCOME_TREND} lang={lang} />
-                    
-                    <div className="pt-8 border-t border-white/5">
-                      <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
-                          <Users className="w-4 h-4 text-[#00F5FF]" />
-                          {t.clinicianWorkforce}
-                        </h3>
-                        <div className="text-[10px] font-mono text-slate-500 uppercase">{t.dataSource}</div>
-                      </div>
-                      <ClinicianStatsCharts specData={clinicianStats.specData} statusData={clinicianStats.statusData} lang={lang} />
-                    </div>
+                    <OutcomesCharts symptomData={SYMPTOM_DATA} outcomeTrend={OUTCOME_TREND} />
                     
                     {/* Key Performance Indicators */}
                     <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <div className="bg-white/5 border border-white/10 p-4 rounded-xl">
-                        <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-2 font-bold">{t.protocolCompletion}</div>
+                      <div className="bg-white/5 border border-white/10 p-4 rounded-xl transition-all duration-300 hover:border-white/20 hover:bg-white/10 hover:shadow-[0_0_15px_rgba(0,245,255,0.03)]">
+                        <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-2 font-bold">Protocol Completion</div>
                         <div className="text-2xl font-mono font-bold text-[#00F5FF]">84.2%</div>
-                        <div className="text-[8px] text-[#00FF66] mt-1 uppercase font-bold tracking-tighter">+2.4% {t.thisMonth}</div>
+                        <div className="text-[8px] text-[#00FF66] mt-1 uppercase font-bold tracking-tighter">+2.4% vs last month</div>
                       </div>
-                      <div className="bg-white/5 border border-white/10 p-4 rounded-xl">
-                        <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-2 font-bold">{t.avgSessions}</div>
+                      <div className="bg-white/5 border border-white/10 p-4 rounded-xl transition-all duration-300 hover:border-white/20 hover:bg-white/10 hover:shadow-[0_0_15px_rgba(0,245,255,0.03)]">
+                        <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-2 font-bold">Avg Sessions</div>
                         <div className="text-2xl font-mono font-bold text-[#00F5FF]">12.4</div>
-                        <div className="text-[8px] text-slate-500 mt-1 uppercase font-bold tracking-tighter">{t.mhpStandard}</div>
+                        <div className="text-[8px] text-slate-500 mt-1 uppercase font-bold tracking-tighter">MHPSS Standard: 16</div>
                       </div>
-                      <div className="bg-white/5 border border-white/10 p-4 rounded-xl">
-                        <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-2 font-bold">{t.retentionRate}</div>
+                      <div className="bg-white/5 border border-white/10 p-4 rounded-xl transition-all duration-300 hover:border-white/20 hover:bg-white/10 hover:shadow-[0_0_15px_rgba(0,245,255,0.03)]">
+                        <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-2 font-bold">Retention Rate</div>
                         <div className="text-2xl font-mono font-bold text-[#00F5FF]">91%</div>
-                        <div className="text-[8px] text-[#00FF66] mt-1 uppercase font-bold tracking-tighter">{t.highEngagement}</div>
+                        <div className="text-[8px] text-[#00FF66] mt-1 uppercase font-bold tracking-tighter">High Engagement</div>
                       </div>
-                      <div className="bg-white/5 border border-white/10 p-4 rounded-xl">
-                        <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-2 font-bold">{t.waitTime}</div>
-                        <div className="text-2xl font-mono font-bold text-[#00F5FF]">4.2d</div>
-                        <div className="text-[8px] text-[#00FF66] mt-1 uppercase font-bold tracking-tighter">{t.optimizedFlow}</div>
+                      <div className="bg-white/5 border border-white/10 p-4 rounded-xl transition-all duration-300 hover:border-white/20 hover:bg-white/10 hover:shadow-[0_0_15px_rgba(0,245,255,0.03)]">
+                        <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-2 font-bold">Wait Time</div>
+                        <div className="text-2xl font-mono font-bold text-[#00FF66]">4.2d</div>
+                        <div className="text-[8px] text-[#00FF66] mt-1 uppercase font-bold tracking-tighter">Optimized Flow</div>
                       </div>
                     </div>
                   </div>
@@ -909,17 +809,17 @@ export default function Page() {
 
                 {activeModule === 'compliance' && (
                   <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <h2 className="text-xl font-bold text-white uppercase tracking-widest">{t.complianceAudit}</h2>
+                    <h2 className="text-xl font-bold text-white uppercase tracking-widest">System Compliance & Audit</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="bg-[#050A15] border border-white/10 p-6 rounded-xl">
-                        <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-6">{t.reportingStandards}</h3>
+                        <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-6">Reporting & Standards</h3>
                         <div className="space-y-4">
                           {[
-                            { label: t.grandBargain, status: t.pass },
-                            { label: t.localization, status: '34.2%', color: '#00F5FF' },
-                            { label: t.iatiStandard, status: t.synced },
-                            { label: t.mhgapProtocols, status: t.verified },
-                            { label: t.automatedReporting, status: t.activeStatus },
+                            { label: 'Grand Bargain Compliance', status: 'PASS' },
+                            { label: 'Localization % (Direct Funding)', status: '34.2%', color: '#00F5FF' },
+                            { label: 'IATI Standard Integration', status: 'SYNCED' },
+                            { label: 'mhGAP Clinical Protocols', status: 'VERIFIED' },
+                            { label: 'Automated Reporting (Real-time)', status: 'ACTIVE' },
                           ].map((check) => (
                             <div key={check.label} className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5">
                               <div className="text-xs font-medium text-white">{check.label}</div>
@@ -928,20 +828,20 @@ export default function Page() {
                           ))}
                         </div>
                         <div className="mt-6 p-4 bg-[#F59E0B]/5 border border-[#F59E0B]/20 rounded-lg">
-                          <div className="text-[10px] text-[#F59E0B] font-bold uppercase tracking-widest mb-2">{t.securityEngine}</div>
+                          <div className="text-[10px] text-[#F59E0B] font-bold uppercase tracking-widest mb-2">Security Engine</div>
                           <p className="text-[10px] text-slate-400 leading-relaxed">
-                            {t.securityDesc}
+                            Real-time transaction analysis for anomaly detection and suspicious activity identification in MHPSS funding is active.
                           </p>
                         </div>
                       </div>
                       <div className="bg-[#050A15] border border-white/10 p-6 rounded-xl">
-                        <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-6">{t.integrityChecks}</h3>
+                        <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-6">Integrity Checks</h3>
                         <div className="space-y-4">
                           {[
-                            { label: t.identityVerification, status: t.pass, time: `2${t.minutesAgo}` },
-                            { label: t.smartContractAudit, status: t.pass, time: `14${t.hoursAgo}` },
-                            { label: t.dataEncryption, status: t.activeStatus, time: t.continuous },
-                            { label: t.gdprHipaa, status: t.verified, time: t.monthly },
+                            { label: 'Clinician Identity Verification', status: 'PASS', time: '2m ago' },
+                            { label: 'Smart Contract Audit (v2.1)', status: 'PASS', time: '14h ago' },
+                            { label: 'Data Encryption (AES-256)', status: 'ACTIVE', time: 'Continuous' },
+                            { label: 'GDPR / HIPAA Compliance', status: 'VERIFIED', time: 'Monthly' },
                           ].map((check) => (
                             <div key={check.label} className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5">
                               <div>
@@ -954,13 +854,335 @@ export default function Page() {
                         </div>
                       </div>
                       <div className="bg-[#050A15] border border-white/10 p-6 rounded-xl">
-                        <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-6">{t.auditLogs}</h3>
+                        <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-6">Recent Audit Logs</h3>
                         <div className="space-y-3 font-mono text-[10px]">
-                          <div className="text-slate-400">[16:02:11] <span className="text-[#F59E0B]">INFO</span>: {t.blockVerified}. Tx: 0x8f...3b2a</div>
-                          <div className="text-slate-400">[15:58:45] <span className="text-[#00FF66]">{t.pass}</span>: {t.identityVerification} Dr. Kovalenko (UA-MED-8492)</div>
-                          <div className="text-slate-400">[15:45:30] <span className="text-[#A855F7]">{t.synced}</span>: {t.totalPoolUpdated} (+$250,000)</div>
-                          <div className="text-slate-400">[15:30:12] <span className="text-[#F59E0B]">WARN</span>: {t.latencySpike} (34ms)</div>
-                          <div className="text-slate-400">[15:10:05] <span className="text-[#F59E0B]">INFO</span>: {t.newSession}: PTSD Initial</div>
+                          <div className="text-slate-400">[16:02:11] <span className="text-[#F59E0B]">INFO</span>: Block 849221 verified. Tx: 0x8f...3b2a</div>
+                          <div className="text-slate-400">[15:58:45] <span className="text-[#00FF66]">PASS</span>: Identity check Dr. Kovalenko (UA-MED-8492)</div>
+                          <div className="text-slate-400">[15:45:30] <span className="text-[#A855F7]">SYNC</span>: Загальний пул оновлено (+$250,000)</div>
+                          <div className="text-slate-400">[15:30:12] <span className="text-[#F59E0B]">WARN</span>: Latency spike detected in EU node (34ms)</div>
+                          <div className="text-slate-400">[15:10:05] <span className="text-[#F59E0B]">INFO</span>: New session initiated: PTSD Initial</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeModule === 'nbu' && (
+                  <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    {/* Header */}
+                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-white/10 pb-4">
+                      <div>
+                        <h2 className="text-2xl font-bold text-white uppercase tracking-widest">Стратегічний Брифінг: As-Is vs To-Be</h2>
+                        <p className="text-sm text-slate-400 mt-2 max-w-3xl">
+                          Аналітична записка для прийняття рішень. Базується на верифікованих даних WHO, ЄБРР, НБУ та консорціуму FEEL Again. 
+                          Відображає вплив імплементації цифрової платіжної інфраструктури (шини інтероперабельності) MHPSS.
+                        </p>
+                      </div>
+                      <div className="text-[10px] text-[#D4A017] border border-[#D4A017]/30 bg-[#D4A017]/10 px-3 py-2 rounded-lg flex flex-col items-end gap-1 shrink-0">
+                        <div className="flex items-center gap-2 font-bold uppercase">
+                          <ShieldCheck className="w-4 h-4" />
+                          EXECUTIVE LEVEL
+                        </div>
+                        <span>Дані верифіковано | Без wishful thinking</span>
+                      </div>
+                    </div>
+
+                    {/* Stakeholder Matrix */}
+                    <div className="space-y-6">
+                      
+                      {/* 1. Держава (Україна) */}
+                      <div className="bg-[#050A15] border border-white/10 rounded-xl overflow-hidden">
+                        <div className="bg-white/5 px-6 py-3 border-b border-white/10 flex items-center gap-3">
+                          <Landmark className="w-5 h-5 text-white" />
+                          <h3 className="text-sm font-bold text-white uppercase tracking-widest">1. Держава (Україна)</h3>
+                        </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-white/10">
+                          {/* As-Is */}
+                          <div className="p-6 bg-red-900/5">
+                            <div className="text-[10px] text-red-400 font-bold uppercase tracking-widest mb-4">Стан As-Is (Бездіяльність)</div>
+                            <div className="space-y-4">
+                              <div>
+                                <div className="text-3xl font-mono text-white">1% <span className="text-sm text-slate-500">покриття</span></div>
+                                <div className="text-xs text-slate-400 mt-1">~100k осіб на рік при потребі 9.6M</div>
+                              </div>
+                              <p className="text-sm text-slate-300 leading-relaxed">
+                                $417M щорічного фінансування без інтегрованого трекінгу. Структурна неможливість: 4000 фахівців × 25 пацієнтів/тиждень = 100,000/рік. Навчання нових кадрів не закриває розрив. Тіньовий сектор (5-8 тис. практиків) не сплачує податки.
+                              </p>
+                            </div>
+                          </div>
+                          {/* To-Be */}
+                          <div className="p-6 bg-[#2A9D8F]/5">
+                            <div className="text-[10px] text-[#00F5FF] font-bold uppercase tracking-widest mb-4">Стан To-Be (Імплементація)</div>
+                            <div className="space-y-4">
+                              <div>
+                                <div className="text-3xl font-mono text-[#00F5FF]">500k+ <span className="text-sm text-slate-500">покриття</span></div>
+                                <div className="text-xs text-slate-400 mt-1">Вартість інфраструктури для держави: $0.00</div>
+                              </div>
+                              <p className="text-sm text-slate-300 leading-relaxed">
+                                Цифрова шина об&apos;єднує 38,000+ навчених (UNICEF/WHO) фахівців та приватну практику. Формалізація ринку, зростання податкових надходжень. Замінює 30%+ накладних витрат на 3-7% транзакційної комісії.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="px-6 py-3 bg-white/5 border-t border-white/10 text-[11px] text-slate-400">
+                          <strong className="text-[#D4A017]">Обґрунтування:</strong> ФАКТ: Консорціум вже інвестував $5M в інфраструктуру. ПРИПУЩЕННЯ (Консервативне): Збільшення покриття до 500k базується на підключенні лише 15% від існуючого резерву навчених спеціалістів через цифрову маршрутизацію.
+                        </div>
+                      </div>
+
+                      {/* 2. Банківська система */}
+                      <div className="bg-[#050A15] border border-white/10 rounded-xl overflow-hidden">
+                        <div className="bg-white/5 px-6 py-3 border-b border-white/10 flex items-center gap-3">
+                          <Wallet className="w-5 h-5 text-white" />
+                          <h3 className="text-sm font-bold text-white uppercase tracking-widest">2. Українська банківська система</h3>
+                        </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-white/10">
+                          {/* As-Is */}
+                          <div className="p-6 bg-red-900/5">
+                            <div className="text-[10px] text-red-400 font-bold uppercase tracking-widest mb-4">Стан As-Is (Бездіяльність)</div>
+                            <div className="space-y-4">
+                              <div>
+                                <div className="text-3xl font-mono text-white">€48-64M <span className="text-sm text-slate-500">втрат</span></div>
+                                <div className="text-xs text-slate-400 mt-1">Транзакції проходять поза банками (готівка/P2P)</div>
+                              </div>
+                              <p className="text-sm text-slate-300 leading-relaxed">
+                                Декларативна участь у Хартії фінансової інклюзії ветеранів без технічних інструментів реалізації. Відсутність MHPSS-compliance для покращення скорингу.
+                              </p>
+                            </div>
+                          </div>
+                          {/* To-Be */}
+                          <div className="p-6 bg-[#2A9D8F]/5">
+                            <div className="text-[10px] text-[#00F5FF] font-bold uppercase tracking-widest mb-4">Стан To-Be (Імплементація)</div>
+                            <div className="space-y-4">
+                              <div>
+                                <div className="text-3xl font-mono text-[#00F5FF]">10,000+ <span className="text-sm text-slate-500">нових ФОП</span></div>
+                                <div className="text-xs text-slate-400 mt-1">Дешеві пасиви від донорських фондів</div>
+                              </div>
+                              <p className="text-sm text-slate-300 leading-relaxed">
+                                Регулярний потік мікротранзакцій на escrow-рахунки банків-партнерів. Ready-made виконання зобов&apos;язань Хартії з KPI для ЄБРР.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="px-6 py-3 bg-white/5 border-t border-white/10 text-[11px] text-slate-400">
+                          <strong className="text-[#D4A017]">Обґрунтування:</strong> ФАКТ: Банк-першопроходець забирає тіньовий потік. ПРИПУЩЕННЯ: Конвертація 50% тіньового ринку (5000-8000 практиків) у легальні ФОП рахунки завдяки вимогам платформи щодо верифікації виплат.
+                        </div>
+                      </div>
+
+                      {/* 3. НБУ */}
+                      <div className="bg-[#050A15] border border-white/10 rounded-xl overflow-hidden">
+                        <div className="bg-white/5 px-6 py-3 border-b border-white/10 flex items-center gap-3">
+                          <Activity className="w-5 h-5 text-white" />
+                          <h3 className="text-sm font-bold text-white uppercase tracking-widest">3. Національний банк України (НБУ)</h3>
+                        </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-white/10">
+                          {/* As-Is */}
+                          <div className="p-6 bg-red-900/5">
+                            <div className="text-[10px] text-red-400 font-bold uppercase tracking-widest mb-4">Стан As-Is (Бездіяльність)</div>
+                            <div className="space-y-4">
+                              <div>
+                                <div className="text-3xl font-mono text-white">Сліпа зона <span className="text-sm text-slate-500">в даних</span></div>
+                                <div className="text-xs text-slate-400 mt-1">Деградація людського капіталу не квантифікується</div>
+                              </div>
+                              <p className="text-sm text-slate-300 leading-relaxed">
+                                Відсутність даних про вплив ментального здоров&apos;я на макроекономіку. Неможливість врахувати втрати продуктивності у ВВП-моделях.
+                              </p>
+                            </div>
+                          </div>
+                          {/* To-Be */}
+                          <div className="p-6 bg-[#2A9D8F]/5">
+                            <div className="text-[10px] text-[#00F5FF] font-bold uppercase tracking-widest mb-4">Стан To-Be (Імплементація)</div>
+                            <div className="space-y-4">
+                              <div>
+                                <div className="text-3xl font-mono text-[#00F5FF]">Data Custodian <span className="text-sm text-slate-500">MHEI</span></div>
+                                <div className="text-xs text-slate-400 mt-1">Випереджаючий індикатор економічного здоров&apos;я</div>
+                              </div>
+                              <p className="text-sm text-slate-300 leading-relaxed">
+                                НБУ отримує Mental Health Economic Index (MHEI). Анонімізована агрегація транзакцій дозволяє бачити кореляцію між MHPSS-інтервенціями, продуктивністю та кредитним ризиком.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="px-6 py-3 bg-white/5 border-t border-white/10 text-[11px] text-slate-400">
+                          <strong className="text-[#D4A017]">Обґрунтування:</strong> ФАКТ: Всі транзакції платформи проходять через банки. ПРИПУЩЕННЯ: НБУ виступає виключно як custodian даних, не надавач медпослуг, використовуючи транзакційний слід для макроекономічного прогнозування.
+                        </div>
+                      </div>
+
+                      {/* 4. ЄБРР / Мірбанк */}
+                      <div className="bg-[#050A15] border border-white/10 rounded-xl overflow-hidden">
+                        <div className="bg-white/5 px-6 py-3 border-b border-white/10 flex items-center gap-3">
+                          <ShieldCheck className="w-5 h-5 text-white" />
+                          <h3 className="text-sm font-bold text-white uppercase tracking-widest">4. Світовий банк (Мірбанк) та ЄБРР</h3>
+                        </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-white/10">
+                          {/* As-Is */}
+                          <div className="p-6 bg-red-900/5">
+                            <div className="text-[10px] text-red-400 font-bold uppercase tracking-widest mb-4">Стан As-Is (Бездіяльність)</div>
+                            <div className="space-y-4">
+                              <div>
+                                <div className="text-3xl font-mono text-white">€250M <span className="text-sm text-slate-500">гарантій</span></div>
+                                <div className="text-xs text-slate-400 mt-1">Не мають верифікованого MHPSS-компоненту</div>
+                              </div>
+                              <p className="text-sm text-slate-300 leading-relaxed">
+                                Гуманітарні проєкти фінансують процеси (inputs), а не результати (outcomes). Відсутність інструменту для аудиту ефективності витрат на відновлення.
+                              </p>
+                            </div>
+                          </div>
+                          {/* To-Be */}
+                          <div className="p-6 bg-[#2A9D8F]/5">
+                            <div className="text-[10px] text-[#00F5FF] font-bold uppercase tracking-widest mb-4">Стан To-Be (Імплементація)</div>
+                            <div className="space-y-4">
+                              <div>
+                                <div className="text-3xl font-mono text-[#00F5FF]">1:3-10 <span className="text-sm text-slate-500">ROI (WHO)</span></div>
+                                <div className="text-xs text-slate-400 mt-1">Запуск Social Impact Bonds</div>
+                              </div>
+                              <p className="text-sm text-slate-300 leading-relaxed">
+                                MHPSS стає обов&apos;язковим компонентом інфраструктурних кредитів. Платформа забезпечує 100% відстежуваність транзакцій (blockchain-реєстр) для outcome-based платежів.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="px-6 py-3 bg-white/5 border-t border-white/10 text-[11px] text-slate-400">
+                          <strong className="text-[#D4A017]">Обґрунтування:</strong> ФАКТ: Кожен $1 попереджує $3–10 втрат (WHO). Методологія LSE: захист $8–28B/рік. Blockchain-архітектура (Solana/Quoroom) унеможливлює маніпуляції з даними про надані послуги.
+                        </div>
+                      </div>
+
+                    </div>
+
+                    {/* NBU Scoring System & Composite Indices */}
+                    <div className="bg-[#050A15] border border-white/10 p-6 rounded-xl">
+                      <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-sm font-bold text-white uppercase tracking-widest">Композитні Індекси: MWI та MHEI</h3>
+                        <div className="text-[10px] font-mono text-slate-500 bg-white/5 px-2 py-1 rounded">NBU SCORING METRICS</div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* Current Performance */}
+                        <div className="bg-red-900/10 border border-red-500/20 p-5 rounded-lg relative overflow-hidden">
+                          <div className="absolute top-0 left-0 w-1 h-full bg-red-500" />
+                          <div className="flex justify-between items-end mb-4">
+                            <div>
+                              <div className="text-[10px] text-red-400/70 uppercase tracking-widest mb-1">Current Performance</div>
+                              <div className="text-xs text-slate-400">Baseline (Crisis State)</div>
+                            </div>
+                            <div className="text-4xl font-mono font-bold text-red-400">12<span className="text-sm text-slate-500">/100</span></div>
+                          </div>
+                          <div className="w-full h-1.5 bg-black/50 rounded-full overflow-hidden mb-4">
+                            <motion.div 
+                              initial={{ width: 0 }}
+                              whileInView={{ width: '12%' }}
+                              viewport={{ once: true }}
+                              transition={{ duration: 1.5, ease: 'easeOut' }}
+                              className="h-full bg-red-500"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-[10px] font-mono">
+                              <span className="text-slate-500">System Capacity</span>
+                              <span className="text-white">1% (100k/yr)</span>
+                            </div>
+                            <div className="flex justify-between text-[10px] font-mono">
+                              <span className="text-slate-500">Economic Impact</span>
+                              <span className="text-red-400">Severe Drag</span>
+                            </div>
+                            <div className="flex justify-between text-[10px] font-mono">
+                              <span className="text-slate-500">Data Transparency</span>
+                              <span className="text-red-400">Low / Fragmented</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Projected Performance */}
+                        <div className="bg-[#2A9D8F]/10 border border-[#2A9D8F]/30 p-5 rounded-lg relative overflow-hidden">
+                          <div className="absolute top-0 left-0 w-1 h-full bg-[#00F5FF]" />
+                          <div className="flex justify-between items-end mb-4">
+                            <div>
+                              <div className="text-[10px] text-[#00F5FF]/70 uppercase tracking-widest mb-1">Projected Performance</div>
+                              <div className="text-xs text-slate-400">FEEL Again Implementation</div>
+                            </div>
+                            <div className="text-4xl font-mono font-bold text-[#00F5FF]">85<span className="text-sm text-slate-500">/100</span></div>
+                          </div>
+                          <div className="w-full h-1.5 bg-black/50 rounded-full overflow-hidden mb-4">
+                            <motion.div 
+                              initial={{ width: 0 }}
+                              whileInView={{ width: '85%' }}
+                              viewport={{ once: true }}
+                              transition={{ duration: 1.5, ease: 'easeOut', delay: 0.3 }}
+                              className="h-full bg-[#00F5FF]"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-[10px] font-mono">
+                              <span className="text-slate-500">System Capacity</span>
+                              <span className="text-white">~15% (500k/yr)</span>
+                            </div>
+                            <div className="flex justify-between text-[10px] font-mono">
+                              <span className="text-slate-500">Economic Impact</span>
+                              <span className="text-[#00F5FF]">Growth Catalyst</span>
+                            </div>
+                            <div className="flex justify-between text-[10px] font-mono">
+                              <span className="text-slate-500">Data Transparency</span>
+                              <span className="text-[#00F5FF]">High / Unified</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-6 p-4 bg-white/5 border border-white/10 rounded-lg flex gap-4 items-start">
+                        <Activity className="w-5 h-5 text-[#D4A017] shrink-0 mt-0.5" />
+                        <div className="space-y-2">
+                          <p className="text-[11px] text-slate-400 leading-relaxed">
+                            <strong className="text-white">Mental Well-being Index (MWI)</strong> та <strong className="text-white">Mental Health Economic Index (MHEI)</strong> — це композитні метрики, що формуються на перетині транзакційної активності (банківські дані) та клінічних результатів (PHQ-9/GAD-7).
+                          </p>
+                          <p className="text-[11px] text-slate-400 leading-relaxed">
+                            <strong className="text-[#D4A017]">Походження та Обґрунтування:</strong> Імплементація цифрової шини дозволяє перейти від &quot;оплати за процес&quot; до &quot;оплати за результат&quot; (outcome-based). Прогнозоване зростання індексу до 85/100 базується на відсіканні неефективних практик та інтеграції Stepped Care протоколів з VR-мультиплікаторами, що математично доведено знижує економічний тягар нелікованої травми.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Divergence Chart */}
+                    <div className="bg-[#050A15] border border-white/10 p-6 rounded-xl">
+                      <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-6">Дивергенція Композитного Індексу (Проєкція 2024-2028)</h3>
+                      <div className="relative h-[250px] w-full border-b border-l border-white/20 mt-4">
+                        {/* Y-Axis Labels */}
+                        <div className="absolute -left-8 bottom-0 text-[10px] text-slate-500 font-mono">Min</div>
+                        <div className="absolute -left-8 top-0 text-[10px] text-slate-500 font-mono">Max</div>
+                        
+                        {/* X-Axis Labels */}
+                        <div className="absolute -bottom-6 left-[10%] text-[10px] text-slate-500 font-mono">2024</div>
+                        <div className="absolute -bottom-6 left-[30%] text-[10px] text-slate-500 font-mono">2025</div>
+                        <div className="absolute -bottom-6 left-[50%] text-[10px] text-white font-bold font-mono">2026 (Запуск)</div>
+                        <div className="absolute -bottom-6 left-[70%] text-[10px] text-slate-500 font-mono">2027</div>
+                        <div className="absolute -bottom-6 left-[90%] text-[10px] text-slate-500 font-mono">2028</div>
+
+                        {/* Grid Lines */}
+                        <div className="absolute top-[25%] w-full border-t border-white/5 border-dashed" />
+                        <div className="absolute top-[50%] w-full border-t border-white/5 border-dashed" />
+                        <div className="absolute top-[75%] w-full border-t border-white/5 border-dashed" />
+                        <div className="absolute left-[50%] h-full border-l border-white/10 border-dashed" />
+
+                        {/* Baseline (Historical) */}
+                        <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 100">
+                          <path d="M 0 40 Q 25 45 50 50" fill="none" stroke="#94a3b8" strokeWidth="2" />
+                          
+                          {/* Inaction Path (Red) */}
+                          <path d="M 50 50 Q 75 70 100 85" fill="none" stroke="#ef4444" strokeWidth="2" strokeDasharray="4 4" />
+                          
+                          {/* Implementation Path (Green/Cyan) */}
+                          <path d="M 50 50 Q 75 30 100 15" fill="none" stroke="#00F5FF" strokeWidth="3" />
+                        </svg>
+
+                        {/* Data Points */}
+                        <div className="absolute left-[50%] top-[50%] w-3 h-3 bg-white rounded-full -translate-x-1/2 -translate-y-1/2 shadow-[0_0_10px_white]" />
+                        <div className="absolute left-[100%] top-[85%] w-2 h-2 bg-red-500 rounded-full -translate-x-1/2 -translate-y-1/2" />
+                        <div className="absolute left-[100%] top-[15%] w-3 h-3 bg-[#00F5FF] rounded-full -translate-x-1/2 -translate-y-1/2 shadow-[0_0_10px_#00F5FF]" />
+
+                        {/* Labels */}
+                        <div className="absolute right-4 top-[20%] text-[10px] font-bold text-[#00F5FF] bg-[#050A15] px-2 py-1 rounded border border-[#00F5FF]/20">
+                          FEEL Again (+300% Спроможність)
+                        </div>
+                        <div className="absolute right-4 bottom-[10%] text-[10px] font-bold text-red-400 bg-[#050A15] px-2 py-1 rounded border border-red-500/20">
+                          Бездіяльність (Колапс)
                         </div>
                       </div>
                     </div>
@@ -977,10 +1199,10 @@ export default function Page() {
               © 2025 Foundation Open Society. All rights reserved.
             </div>
             <div className="flex items-center gap-6 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-              <button className="hover:text-white transition-colors">{t.cookieSettings}</button>
-              <button className="hover:text-white transition-colors">{t.cookieStatement}</button>
-              <button className="hover:text-white transition-colors">{t.privacyPolicy}</button>
-              <button className="hover:text-white transition-colors">{t.disclaimer}</button>
+              <button className="hover:text-white transition-colors">Cookies Settings</button>
+              <button className="hover:text-white transition-colors">Cookie Statement</button>
+              <button className="hover:text-white transition-colors">Privacy Statement</button>
+              <button className="hover:text-white transition-colors">Disclaimer</button>
             </div>
           </footer>
         </div>
